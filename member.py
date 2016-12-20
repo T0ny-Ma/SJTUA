@@ -37,6 +37,26 @@ class MemberDB:
             m = Member(row)
             self.memberList.append(m)
 
+    def addMember(self, member):
+        try:
+            data = member.pid, member.name, member.phone, member.email
+            self.cu.execute("INSERT INTO member (pid,name,phone,email) VALUES (?, ?, ?, ?)", data)
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
+
+    def delMember(self, pid):
+        try:
+            self.cu.execute("DELETE FROM member WHERE pid = %d" % (pid))
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
+
+
     def searchMember(self,tags):
         self.memberList = []
 

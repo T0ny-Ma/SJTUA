@@ -9,6 +9,7 @@ from member import *
 from dynamic import *
 from message import *
 from schedule import *
+# from signin import *
 
 # some bug here convert state
 INITBUG, DYNAMIC, SCHEDULE, MESSAGE, MEMBER = range(5)
@@ -17,9 +18,10 @@ assName = "SJTU_CC"
 
 
 class mainWindow(QtGui.QMainWindow):
-    def __init__(self, state):
+    def __init__(self, associate, state):
         super(mainWindow, self).__init__()
         self.state = state
+        self.associate = associate
         self.settings = load_settings(settings_path)
 
         self.w = 1000
@@ -40,13 +42,24 @@ class mainWindow(QtGui.QMainWindow):
 
         self.boards = []
 
-        self.TitleBoard = TitleBoard(self, assName, winState)
+        self.TitleBoard = TitleBoard(self, self.associate.name, winState)
+        self.EmailEditor = EmailEditor(self)
+        self.MessageRecord = MessageRecord(self)
+        self.DialogList = DialogList(self)
         self.DynamicList = DynamicList(self)
         self.MemberLocate = MemberLocate(self)
         self.Calendar = Calendar(self)
         self.AffairList = AffairList(self)
-        self.boards.extend([self.MemberLocate,self.DynamicList,self.Calendar,self.AffairList])
+        self.boards.extend([self.MemberLocate,self.DynamicList,self.Calendar,self.AffairList,
+                            self.EmailEditor,self.DialogList,self.MessageRecord])
         self.convertState(state)  # bug if self.state
+
+        self.pbar = QtGui.QProgressBar(self)
+        self.pbar.setGeometry(0, 50, 1030, 2)
+        self.pbar.setMaximum(0)
+        self.pbar.setMinimum(0)
+        self.pbar.hide()
+        self.show()
 
 
     def center(self):
@@ -73,9 +86,9 @@ class mainWindow(QtGui.QMainWindow):
             self.boards.append(self.AffairList)
             pass
         elif state == MESSAGE:
-            #self.boards.append(self.DialogList)
-            #self.boards.append(self.MessageRecord)
-            #self.boards.append(self.EmailEditor)
+            self.boards.append(self.DialogList)
+            self.boards.append(self.MessageRecord)
+            self.boards.append(self.EmailEditor)
             pass
         elif state == MEMBER:
             self.boards.append(self.MemberLocate)
@@ -84,6 +97,9 @@ class mainWindow(QtGui.QMainWindow):
         for board in self.boards:
             board.show()
         self.update()
+
+    def dispose(self, cmd):
+        pass
 
     @staticmethod
     def confirm_quit(main_win, close_evt=None):
@@ -225,6 +241,14 @@ class TitleBoard(QtGui.QFrame):
         painter = QtGui.QPainter(self)
         rect = self.contentsRect()
         painter.fillRect(rect, 'white')
+        if self.state == DYNAMIC:
+            painter.fillRect(345, 10, 75, 40, '#99ccff')
+        elif self.state == SCHEDULE:
+            painter.fillRect(425, 10, 75, 40, '#99ccff')
+        elif self.state == MESSAGE:
+            painter.fillRect(505, 10, 75, 40, '#99ccff')
+        else:
+            painter.fillRect(585, 10, 75, 40, '#99ccff')
 
     def drawSquare(self, painter, x, y, shape):
         colorTable = [0x000000, 0xCC6666, 0x66CC66, 0x6666CC,
@@ -245,16 +269,24 @@ class TitleBoard(QtGui.QFrame):
                          y + self.squareHeight() - 1, x + self.squareWidth() - 1, y + 1)
 
 
-if __name__ == "__main__":
+class Associate:
+    def __init__(self, name):
+        conn = sqlite3.connect(name+'.db')
+        cu = conn.cursor()
+        cu.execute("select name, phone, email from member where pid=10000")
+        for row in cu:
+            name, phone, email = row
+        self.name = name
+        self.phone = phone
+        self.email = email
+        self.master = ""
 
-    #dynamicdata()
-    affairdata()
-    conn = sqlite3.connect('test.db')
+if __name__ == "__main__":
+    ass = Associate("test")
     app = QtGui.QApplication(sys.argv)
 
-    main = mainWindow(MEMBER)
+    main = mainWindow(ass, MESSAGE)
 
     main.show_and_raise()
     sys.exit(app.exec_())
-    conn.close()
 

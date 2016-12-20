@@ -5,7 +5,6 @@
 from PySide import QtCore, QtGui
 import sqlite3
 
-dynamicList = []
 
 class Dynamic:
     def __init__(self, m):
@@ -35,8 +34,26 @@ class DynamicDB:
             m = Dynamic(row)
             self.dynamicList.append(m)
 
-    def searchDynamic(self,tags):
-        self.dynamicList = []
+    def addDynamic(self, dynamic):
+        try:
+            data = dynamic.dnid, dynamic.bgntime, dynamic.endtime, dynamic.content, dynamic.pointer
+            self.cu.execute("INSERT INTO dynamic (dnid, bgntime, endtime, content, pointer)\
+                   VALUES (?, ?, ?, ?, ?)", data)
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
+
+    def delDynamic(self, dnid):
+        try:
+            self.cu.execute("DELETE FROM dynamic WHERE dnid = %d" % (dnid))
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
+
 
 class DynamicList(QtGui.QFrame):
     def __init__(self, parent):
@@ -47,12 +64,11 @@ class DynamicList(QtGui.QFrame):
         self.list_view = QtGui.QListView(self)
         self.list_view.setGeometry(0, 0, 1000, 540)
         self.list_view.setSpacing(3)
+        self.list_view.setGridSize(QtCore.QSize(100, 100))
 
         self.list_model = DynamicListModel(self.db.dynamicList)
         self.list_view.setModel(self.list_model)
         self.list_view.setIconSize(QtCore.QSize(50, 50))
-
-
 
 
 class DynamicListModel(QtCore.QAbstractListModel):
@@ -72,16 +88,17 @@ class DynamicListModel(QtCore.QAbstractListModel):
 
         item = self.items[index.row()]
         fullname, icon_path, user_data = item.content, item.getIcon(), item.dnid
+        fullname = item.content + 5 * "\n"
 
         if role == QtCore.Qt.DisplayRole:
             return fullname
 
-        elif role == QtCore.Qt.DecorationRole:
-            icon = QtGui.QIcon(icon_path)
-            return icon
+        #elif role == QtCore.Qt.DecorationRole:
+            #icon = QtGui.QIcon(icon_path)
+            #return icon
 
         elif role == QtCore.Qt.BackgroundColorRole:
-            colorTable = [0xCDCDC1, 0xFFFFE0, 0xDCDCDC, 0xF0FFFF,
+            colorTable = [0xcdcdcd, 0xc0d9d9, 0x70DBDB, 0xF0FFFF,
                           0xD1EEEE, 0xCDCDC1, 0x00FFFF, 0x00FF7F]
             cc = item.dnid % 8
             color = QtGui.QColor(colorTable[cc])
@@ -89,16 +106,3 @@ class DynamicListModel(QtCore.QAbstractListModel):
 
         return None
 
-def dynamicdata():
-    datas_ = (
-        (u'张三', '10001'),
-        ('C#\n----\n456', '10002'),
-        ('Lisp\n123', '10003'),
-        ('Objective-C', '10004'),
-        ('Perl', '10005'),
-        ('Ruby', '10006'),
-    )
-    for i in datas_:
-        name, pid = i[0], i[1]
-        dynamic = Dynamic(pid, name)
-        dynamicList.append(dynamic)

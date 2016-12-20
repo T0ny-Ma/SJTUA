@@ -49,8 +49,25 @@ class DialogDB:
             m = Dialog(row)
             self.dialogList.append(m)
 
-    def searchDialog(self,tags):
-        self.dialogList = []
+    def addDialog(self, dialog):
+        try:
+            data = dialog.gid, dialog.contain
+            self.cu.execute("INSERT INTO group (gid, contain) VALUES (?, ?)", data)
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
+
+    def delDialog(self, gid):
+        try:
+            self.cu.execute("DELETE FROM group WHERE gid = %d" % (gid))
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
+
 
 
 class DialogList(QtGui.QFrame):
@@ -124,16 +141,17 @@ class DialogListModel(QtCore.QAbstractListModel):
 
 
 class Message:
-    def __init__(self, m):
-        dnid, bgntime, endtime, content, pointer = m
-        self.dnid = dnid
-        self.bgntime = bgntime
-        self.endtime = endtime
+    def __init__(self, data):
+        mid, sender, receiver, sendtime, content, pointer = data
+        self.mid = mid
+        self.sender = sender
+        self.receiver = receiver
+        self.sendtime = sendtime
         self.content = content
         self.pointer = pointer
 
     def getIcon(self):
-        iconid = int(self.dnid) % 4
+        iconid = int(self.mid) % 4
         return './head/' + str(iconid) + '.png'
 
 
@@ -146,16 +164,31 @@ class MessageDB:
 
     def readMessage(self):
         self.messageList = []
-        self.cu.execute("select dnid, bgntime, endtime, content, pointer from message")
+        self.cu.execute("select mid, sender, receiver, sendtime, content, pointer from message")
         for row in self.cu:
             m = Message(row)
             self.messageList.append(m)
 
-    # def newMessage(self, message):
+    def addMessage(self, message):
+        try:
+            data = message.mid, message.sender, message.receiver,\
+                   message.sendtime, message.content, message.pointer
+            self.cu.execute("INSERT INTO message (mid, sender, receiver, sendtime, content, pointer)\
+                   VALUES (?, ?, ?, ?, ?, ?)", data)
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
 
-
-    def searchMessage(self,tags):
-        self.messageList = []
+    def delMessage(self, mid):
+        try:
+            self.cu.execute("DELETE FROM message WHERE mid = %d" % (mid))
+        except Exception, e:
+            print e
+            return None
+        self.conn.commit()
+        return True
 
 
 class MessageList(QtGui.QFrame):
@@ -208,24 +241,19 @@ class MessageListModel(QtCore.QAbstractListModel):
         return None
 
 
-class EmailEditor(QtGui.QFrame):
+class MessageRecord(QtGui.QFrame):
     def __init__(self, parent):
         QtGui.QFrame.__init__(self, parent)
         self.setGeometry(265, 60, 745, 540)
-
-        self.lineedit = QtGui.QLineEdit(self)
-        self.lineedit.setGeometry(0, 505, 745, 35)
-
-        self.lineedit.returnPressed.connect(self._lineedit_returnPressed)
-        self.lineedit.textChanged.connect(self._lineedit_textChanged)
+        self.parent = parent
 
         self.text_doc = QtGui.QTextDocument()
         self.text_doc.setDefaultStyleSheet(css)
 
-        self.text_edit = QtGui.QTextEdit(self)
-        self.text_edit.setGeometry(0, 0, 745, 505)
-        self.text_edit.setDocument(self.text_doc)
-        self.text_edit.setTextInteractionFlags(QtCore.Qt.TextSelectableByKeyboard | QtCore.Qt.TextSelectableByMouse)
+        self.text_record = QtGui.QTextEdit(self)
+        self.text_record.setGeometry(0, 0, 745, 540)
+        self.text_record.setDocument(self.text_doc)
+        self.text_record.setTextInteractionFlags(QtCore.Qt.TextSelectableByKeyboard | QtCore.Qt.TextSelectableByMouse)
         #        self.text_edit.setReadOnly(True)
         self.log(msg=' ')
         self.log(msg='hello\nworld')
@@ -233,28 +261,39 @@ class EmailEditor(QtGui.QFrame):
         self.log(msg=u'中文输入\n法 KDE 桌面环境')
         self.log(msg='hello\nworld')
         self.log(msg='hello\nworld')
-        self.log(msg='hello\nworld')
-        self.log(msg='hello\nworld')
 
-        self.top_btn = QtGui.QPushButton("top", self)
-        self.top_btn.move(150, 280)
-        self.top_btn.clicked.connect(self.goto_top_btn_clicked)
+        self.top_btn = QtGui.QPushButton(u"▲", self)
+        self.top_btn.setGeometry(680, 250, 30, 30)
+        self.top_btn.clicked.connect(self._topbtn_clicked)
 
-        self.buttom_btn = QtGui.QPushButton("bottom", self)
-        self.buttom_btn.move(150, 300)
-        self.buttom_btn.clicked.connect(self.goto_buttom_btn_clicked)
+        self.buttom_btn = QtGui.QPushButton(u"▼", self)
+        self.buttom_btn.setGeometry(680, 280, 30, 30)
+        self.buttom_btn.clicked.connect(self._buttombtn_clicked)
 
-        # t = self.text_edit.toHtml()
+        self.plus_btn = QtGui.QToolButton(self)
+        icon = QtGui.QIcon("plus.png")
+        self.plus_btn.setIcon(icon)
+        self.plus_btn.setIconSize(QtCore.QSize(24, 24))
+        self.plus_btn.clicked.connect(self._plusbtn_clicked)
+        self.plus_btn.move(677, 400)
+
+        self.text_edit = QtGui.QTextEdit(self)
+        self.text_edit.setGeometry(0, 0, 745, 505)
+        self.text_edit.hide()
 
         self.show()
 
-    def goto_top_btn_clicked(self):
-        scroll_bar = self.text_edit.verticalScrollBar()
+    def _topbtn_clicked(self):
+        scroll_bar = self.text_record.verticalScrollBar()
         scroll_bar.setSliderPosition(scroll_bar.minimum())
 
-    def goto_buttom_btn_clicked(self):
-        scroll_bar = self.text_edit.verticalScrollBar()
+    def _buttombtn_clicked(self):
+        scroll_bar = self.text_record.verticalScrollBar()
         scroll_bar.setSliderPosition(scroll_bar.maximum())
+
+    def _plusbtn_clicked(self):
+        self.hide()
+        self.parent.EmailEditor.show()
 
     def log(self, nickname='foo', msg=None):
         t = QtCore.QTime()
@@ -263,7 +302,7 @@ class EmailEditor(QtGui.QFrame):
         msg = msg.replace(os.linesep, '<br />')
         log = '''<div><span class="nickname">%s</span>&nbsp;&nbsp;<span class="ts">%s</span><p class="msg">%s</p></div>''' % \
               (nickname, now_time, msg)
-        self.text_edit.append(log)
+        self.text_record.append(log)
 
         #        t = self.text_doc.toHtml()
         #        with open('log.txt', 'w') as f:
@@ -277,18 +316,109 @@ class EmailEditor(QtGui.QFrame):
         #        with open('log2.txt', 'w') as f:
         #            f.write(t.toUtf8())
 
-    def _lineedit_textChanged(self, text):
-        print "text changed:", text
 
-        self.item_box.filter_list_by_keyword(text)
-        self.list_view.update()
+class EmailEditor(QtGui.QFrame):
+    def __init__(self, parent):
+        QtGui.QFrame.__init__(self, parent)
+        self.setGeometry(265, 60, 745, 540)
+        self.parent = parent
 
-    def _lineedit_returnPressed(self):
-        text = self.lineedit.text()
+        self.label1 = QtGui.QLabel(u"收件人：", self)
+        self.label1.setGeometry(0, 0, 50, 35)
+        self.label2 = QtGui.QLabel(u"发件人：", self)
+        self.label2.setGeometry(0, 35, 50, 35)
+        self.label2 = QtGui.QLabel(u"主题：", self)
+        self.label2.setGeometry(0, 70, 50, 35)
 
-        print "return press:", text
-        print "items:", self.item_box.items
+        self.text_to = QtGui.QLineEdit(self)
+        self.text_to.setGeometry(50, 0, 745, 35)
+        self.text_from = QtGui.QLineEdit(self)
+        self.text_from.setGeometry(50, 35, 745, 35)
+        self.text_sub = QtGui.QLineEdit(self)
+        self.text_sub.setGeometry(50, 70, 745, 35)
+
+        self.text_edit = QtGui.QTextEdit(self)
+        self.text_edit.setGeometry(0, 105, 745, 435)
+
+        self.back_btn = QtGui.QPushButton(u"←", self)
+        self.back_btn.setGeometry(680, 400, 30, 30)
+        self.back_btn.clicked.connect(self._backbtn_clicked)
+
+        self.send_btn = QtGui.QPushButton(u"发送", self)
+        self.send_btn.setGeometry(680, 250, 30, 30)
+        self.send_btn.clicked.connect(self._sendbtn_clicked)
+
+        self.show()
+
+    def _backbtn_clicked(self):
+        self.hide()
+        self.parent.MessageRecord.show()
+
+    def _sendbtn_clicked(self):
+        self.demo = Signin()
+        self.demo.show()
+        self.parent.pbar.show()
 
 
+class Signin(QtGui.QMainWindow):
+    def __init__(self):
+        super(Signin, self).__init__()
 
+        x, y, w, h = 500, 200, 400, 300
+        self.setGeometry(x, y, w, h)
+        self.setFixedSize(QtCore.QSize(400, 300))
+
+        account_label = QtGui.QLabel("Cellphone No./Fetion No./E-Mail:", self)
+        x, y, w, h = 40, 40, 221, 30
+        account_label.setGeometry(x, y, w, h)
+
+        self.account_combox = QtGui.QComboBox(self)
+        self.account_combox.setEditable(True)
+        self.account_combox.setGeometry(70, 70, 200, 26)
+        self.connect(self.account_combox, QtCore.SIGNAL('currentIndexChanged(QString)'),
+                     self._account_combox_currentIndexChanged)
+
+        passwd_label = QtGui.QLabel("Password:", self)
+        passwd_label.setGeometry(40, 110, 62, 30)
+
+        self.passwd_lineedit = QtGui.QLineEdit(self)
+        self.passwd_lineedit.setGeometry(70, 140, 200, 22)
+        self.passwd_lineedit.setEchoMode(QtGui.QLineEdit.Password)
+
+        reset_passwd_label = QtGui.QLabel("tips", self)
+        reset_passwd_label.setGeometry(300, 140, 130, 30)
+        reset_passwd_tips = 'CMCC user could send "p" to 12520 to reset password'
+        reset_passwd_label.setToolTip(reset_passwd_tips)
+
+        self.remember_me_checkbox = QtGui.QCheckBox("Remember me", self)
+        self.remember_me_checkbox.setGeometry(40, 180, 140, 20)
+
+        self.clear_btn = QtGui.QPushButton("Clear", self)
+        self.clear_btn.setGeometry(20, 210, 114, 32)
+        self.clear_btn.clicked.connect(self._clear_btn_cb)
+
+        self.sign_in_btn = QtGui.QPushButton("Sign In", self)
+        self.sign_in_btn.setGeometry(170, 210, 114, 32)
+        self.sign_in_btn.clicked.connect(self._signin_btn_cb)
+
+    def _account_combox_currentIndexChanged(self, text):
+        if not text:
+            self.passwd_lineedit.setText("")
+
+    def _clear_btn_cb(self):
+        self.account_combox.clearEditText()
+        self.passwd_lineedit.setText("")
+
+    def _signin_btn_cb(self):
+        self.username = self.account_combox.currentText()
+        self.passwd = self.passwd_lineedit.text()
+
+
+if __name__ == "__main__":
+    app = QtGui.QApplication(sys.argv)
+
+    demo = Signin()
+    demo.show_and_raise()
+
+    sys.exit(app.exec_())
 
