@@ -132,6 +132,7 @@ class DynamicListView(QtGui.QListView):
         font.setFamily("Song Typeface")
         font.setPointSize(18)
         self.setFont(font)
+        self.setWordWrap(True)
 
         self.list_model = DynamicListModel(self.db.dynamicList)
         self.setModel(self.list_model)
@@ -147,7 +148,8 @@ class DynamicListView(QtGui.QListView):
         # print "I want to del ",self.preIndex
         index = self.preIndex
         dnid = self.list_model.items[index].dnid
-        self.db.delDynamic(dnid)
+        if self.del_confirm() :
+            self.db.delDynamic(dnid)
         self.refList()
 
     def editItem(self, dynamic):
@@ -162,6 +164,16 @@ class DynamicListView(QtGui.QListView):
     def refList(self):
         self.db.readDynamic()
         self.list_model.items = self.db.dynamicList
+
+    def del_confirm(self, msg=None):
+        title = u"确定删除"
+        msg = u"你确定要删除此动态吗？"
+        reply = QtGui.QMessageBox.question(self, title, msg,
+                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+        if reply == QtGui.QMessageBox.Yes:
+            return True
+        else:
+            return False
 
     def currentChanged(self, current, previous):
         index = self.currentIndex().row()
