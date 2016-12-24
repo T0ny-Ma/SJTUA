@@ -5,6 +5,10 @@
 # from PySide import QtCore, QtGui
 
 from PySide import QtCore, QtGui
+from smtplib import *
+from Tkinter import *
+import tkMessageBox
+import string
 import sqlite3
 import os
 import sys
@@ -355,40 +359,45 @@ class EmailEditor(QtGui.QFrame):
         self.parent.MessageRecord.show()
 
     def _sendbtn_clicked(self):
-        self.demo = Signin()
+        self.demo = Signin(self)
         self.demo.show()
         self.parent.pbar.show()
 
+    def getInfo(self):
+        return self.text_to.text(), self.text_sub.text(),self.text_edit.toPlainText()
+
+
+
 
 class Signin(QtGui.QMainWindow):
-    def __init__(self):
+    def __init__(self, parent = None):
         super(Signin, self).__init__()
+        self.parent = parent
+
 
         x, y, w, h = 500, 200, 400, 300
         self.setGeometry(x, y, w, h)
         self.setFixedSize(QtCore.QSize(400, 300))
 
-        account_label = QtGui.QLabel("Cellphone No./Fetion No./E-Mail:", self)
+        account_label = QtGui.QLabel("E-Mail:", self)
         x, y, w, h = 40, 40, 221, 30
         account_label.setGeometry(x, y, w, h)
 
         self.account_combox = QtGui.QComboBox(self)
         self.account_combox.setEditable(True)
         self.account_combox.setGeometry(70, 70, 200, 26)
-        self.connect(self.account_combox, QtCore.SIGNAL('currentIndexChanged(QString)'),
-                     self._account_combox_currentIndexChanged)
+        # self.connect(self.account_combox, QtCore.SIGNAL('currentIndexChanged(QString)'),
+                    # self._account_combox_currentIndexChanged)
 
-        passwd_label = QtGui.QLabel("Password:", self)
-        passwd_label.setGeometry(40, 110, 62, 30)
+        password_label = QtGui.QLabel("Password:", self)
+        password_label.setGeometry(40, 110, 62, 30)
 
-        self.passwd_lineedit = QtGui.QLineEdit(self)
-        self.passwd_lineedit.setGeometry(70, 140, 200, 22)
-        self.passwd_lineedit.setEchoMode(QtGui.QLineEdit.Password)
+        self.password_lineedit = QtGui.QLineEdit(self)
+        self.password_lineedit.setGeometry(70, 140, 200, 22)
+        self.password_lineedit.setEchoMode(QtGui.QLineEdit.Password)
 
-        reset_passwd_label = QtGui.QLabel("tips", self)
-        reset_passwd_label.setGeometry(300, 140, 130, 30)
-        reset_passwd_tips = 'CMCC user could send "p" to 12520 to reset password'
-        reset_passwd_label.setToolTip(reset_passwd_tips)
+        reset_password_label = QtGui.QLabel("tips", self)
+        reset_password_label.setGeometry(300, 140, 130, 30)
 
         self.remember_me_checkbox = QtGui.QCheckBox("Remember me", self)
         self.remember_me_checkbox.setGeometry(40, 180, 140, 20)
@@ -403,22 +412,74 @@ class Signin(QtGui.QMainWindow):
 
     def _account_combox_currentIndexChanged(self, text):
         if not text:
-            self.passwd_lineedit.setText("")
+            self.password_lineedit.setText("")
 
     def _clear_btn_cb(self):
         self.account_combox.clearEditText()
-        self.passwd_lineedit.setText("")
+        self.password_lineedit.setText("")
 
     def _signin_btn_cb(self):
         self.username = self.account_combox.currentText()
-        self.passwd = self.passwd_lineedit.text()
+        self.password = self.password_lineedit.text()
+        if len(self.username)==0 or len(self.password)==0 or "@" not in self.username:
+            tkMessageBox.showwarning("Caution!","Invalid e-mail address or empty password, check please!")
+            self.clear()
+            return
+        self.getSmtpHost()
+        self.connect()
+
+    def connect(self):
+        'this method will try to connet the SMTP server according the current user'
+        HOST = 'smtp.' + self.smtp + '.com'
+        try:
+            self.mySMTP = SMTP(HOST)
+            self.mySMTP.login(self.username, self.password)
+            # except SMTPConnectError:
+        except Exception, e:
+            tkMessageBox.showerror('Link ERROR!', '%s' % e)
+            return
+        self.mySendMail = sendMail(self.mySMTP, self.username)
+        to, sub, text = self.parent.getInfo()
+        self.mySendMail.sendMail(to, sub, text)
+
+    def clear(self):
+        self.account_combox.currentText().delete(0,END)
+        self.password = self.password_lineedit.text(0,END)
+
+    def getSmtpHost(self):
+        'this method try to obtian the SMTP HOST according the user account'
+        firstSplit = self.username.split('@')[1]
+        self.smtp = firstSplit.split('.')[0]
+
+class sendMail(object):
+    'my send mail class'
+    def __init__(self, smtp='', sender=''):
+        self.smtp = smtp
+        self.sender = sender
+
+    def getMailInfo(self):
+        self.sendTo = to
+        self.subjectInfo = sub
+        self.sendTextInfo = text
+
+    def sendMail(self,to, sub, text):
+        # self.getMailInfo()
+        body = string.join(("From: %s" % self.sender, "To: %s" % to, "Subject: %s" % sub, "", text), "\r\n")
+        try:
+            self.smtp.sendmail(self.sender, [to], body)
+        except Exception, e:
+            tkMessageBox.showerr('Failed!:(', "%s" % e)
+            return
+        tkMessageBox.showinfo('Attention!', 'Send!:)')
+
+
 
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
 
     demo = Signin()
-    demo.show_and_raise()
+    demo.show()
 
     sys.exit(app.exec_())
 
